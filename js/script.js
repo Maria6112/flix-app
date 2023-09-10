@@ -1,8 +1,20 @@
 const global = {
-    currentPage: window.location.pathname //set to currentPage the path of the page
-
-}
-// console.log(global.currentPage); //to view the path of the current Page
+    currentPage: window.location.pathname, //set to currentPage the path of the page
+    search: {
+        term: '', 
+        type: '',
+        page: 1,
+        totalPages: 1
+    },
+    // Register in the TMDB site and get the key/link
+    // notice that if you put the KEY here in the code, everyone can see it. 
+    // should put it in server and get request it from there
+    api: {
+        apiKey: '2d83a0f0e5d8205de71d628a2393a49b', // took this from the tmdb
+        apiUrl: 'https://api.themoviedb.org/3/' // took this from the tmdb
+    }
+};
+// console.log(global.currentPage); //to view the path of the current Page 
 
 // Display 20 most Popular Movies
 async function displayPopularMovies() {
@@ -240,6 +252,75 @@ function displayBackgroundImage(type, backgroundPath) {
     }
 }
 
+//Search Movies/Shows
+async function search() {
+    const queryString = window.location.search; //to get the data from url of the search
+    // console.log(queryString); // ?type=movie&search-term=goodfellas
+    const urlParams = new URLSearchParams(queryString);
+    // console.log(urlParams.get('type')); // check the url type if movie or tv
+    global.search.type = urlParams.get('type'); 
+    global.search.term = urlParams.get('search-term');
+
+    // put alert if there is no type
+    if (global.search.term !== '' && global.search.term !== null) {
+
+        // @todo - make request and display result 
+        //we need to change the next row:
+        // const results = searchAPIData();
+        //to this:
+        const { results, total_pages, page } = await searchAPIData(); //
+        console.log(results);
+        if (results.length === 0) {
+            showAlert('No results found');
+            return;
+        }
+
+        displaySearchResults(results);
+        document.querySelector('#search-term').value = '';
+
+    } else {
+        showAlert('Please enter a Search term');
+        }
+}
+
+function displaySearchResults(results) {
+    // loot thrue results and show them
+    // we copied the forEac from displayPopularMovies & changed to search
+    results.forEach((result) => {
+        const div = document.createElement('div'); //add div element
+        div.classList.add('card'); //add class name
+        div.innerHTML = `
+          <a href="${global.search.type}-details.html?id=${result.id}">
+            
+            ${
+        //we need to check if there is a image in the movie ?if -add the image url. :else add no-image
+            // we need to check if movie or tv type
+            result.poster_path
+                ? `<img 
+              src="https://image.tmdb.org/t/p/w500/${result.poster_path}"
+              class="card-img-top"
+              alt="${global.search.type === 'movie' ? result.title : result.name}"
+            />` : `<img
+              src="images/no-image.jpg"
+              class="card-img-top"
+              alt="${global.search.type === 'movie' ? result.title : result.name}"
+            />`
+            }
+          </a>
+          <div class="card-body">
+            <h5 class="card-title">${global.search.type === 'movie' ? result.title : result.name}</h5>
+            <p class="card-text">
+              <small class="text-muted">Release: ${global.search.type === 'movie' ? result.release_date : result.first_air_date}</small>
+            </p>
+          </div>
+          `;
+        
+        document.querySelector('#search-results').
+            appendChild(div);
+    });
+}
+
+
 // Display slider movies
 async function displaySlider() {
     const { results } = await fetchAPIData('movie/now_playing'); //we get the results
@@ -294,15 +375,36 @@ function initSwiper() {
 
 // Fetch data from TMDB API
 async function fetchAPIData(endpoint) {
-    // Register in the TMDB site and get the key/link
-    // notice that if you put the KEY here in the code, everyone can see it. 
-    // should put it in server and get request it from there
-    const API_KEY = '2d83a0f0e5d8205de71d628a2393a49b';// took this from the tmdb
-    const API_URL = 'https://api.themoviedb.org/3/' // took this from the tmdb
+    const API_KEY = global.api.apiKey;
+    const API_URL = global.api.apiUrl;
 
     showSpinner();
 
     const response = await fetch(`${API_URL}${endpoint}?api_key=${API_KEY}&language=en-US`);
+    const data = await response.json();
+
+    hideSpinner(); // hide the spinner after fetching data
+    return data;
+    
+}
+
+function showSpinner() {
+    document.querySelector('.spinner').classList.add('show');
+}
+function hideSpinner() {
+    document.querySelector('.spinner').classList.remove('show');
+}
+
+// Make Request to Search
+async function searchAPIData() {
+    const API_KEY = global.api.apiKey;
+    const API_URL = global.api.apiUrl;
+
+    showSpinner();
+    // we need to make the url: ?type=movie&search-term=goodfellas
+    //movie=> movie or tv
+    //goodfellas => your search input
+    const response = await fetch(`${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en-US&query=${global.search.term}`);
     const data = await response.json();
 
     hideSpinner(); // hide the spinner after fetching data
@@ -331,6 +433,18 @@ function addCommasToNumber (number) {
     return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+
+// Show error alert
+function showAlert(message, className = 'error') {
+    const alertEl = document.createElement('div');
+    alertEl.classList.add('alert', className);
+    alertEl.appendChild(document.createTextNode(message));
+    document.querySelector('#alert').appendChild(alertEl);
+
+    setTimeout(()=> alertEl.remove(), 3000); // removes the alert after 3 sec.
+} 
+
+
 //Init App
 function init() {
     switch (global.currentPage) { //check which page run
@@ -350,7 +464,7 @@ function init() {
             displayShowDetails();
             break;
         case '/search.html':
-            console.log('Search');
+            search();
             break;
     }
 
@@ -358,4 +472,3 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
-
