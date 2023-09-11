@@ -4,7 +4,8 @@ const global = {
         term: '', 
         type: '',
         page: 1,
-        totalPages: 1
+        totalPages: 1,
+        totalResults: 0
     },
     // Register in the TMDB site and get the key/link
     // notice that if you put the KEY here in the code, everyone can see it. 
@@ -268,8 +269,12 @@ async function search() {
         //we need to change the next row:
         // const results = searchAPIData();
         //to this:
-        const { results, total_pages, page } = await searchAPIData(); //
-        console.log(results);
+        const { results, total_pages, page, total_results } = await searchAPIData(); 
+
+        global.search.page = page; //get the page number
+        global.search.totalPages = total_pages; //get the total pages of searchs
+        global.search.totalResults = total_results; //get the total results
+        
         if (results.length === 0) {
             showAlert('No results found');
             return;
@@ -284,6 +289,11 @@ async function search() {
 }
 
 function displaySearchResults(results) {
+    // Clear previous results:
+    document.querySelector('#search-results').innerHTML = '';
+    document.querySelector('#search-results-heading').innerHTML = '';
+    document.querySelector('#pagination').innerHTML = '';
+
     // loot thrue results and show them
     // we copied the forEac from displayPopularMovies & changed to search
     results.forEach((result) => {
@@ -315,9 +325,56 @@ function displaySearchResults(results) {
           </div>
           `;
         
+        document.querySelector('#search-results-heading').innerHTML = `
+            <h2>
+            ${results.length} of ${global.search.totalResults} Results for ${global.search.term}
+            </h2>
+        `;
+        
         document.querySelector('#search-results').
             appendChild(div);
     });
+
+    // Display Pagination. we cutted from the html, and to create new with js
+    displayPagination();
+
+}
+
+// Create & Display Pagination for Search
+function displayPagination() {
+    const div = document.createElement('div');
+    div.classList.add('pagination');
+    div.innerHTML = `
+        <button class="btn btn-primary" id="prev">Prev</button>
+        <button class="btn btn-primary" id="next">Next</button>
+        <div class="page-counter">Page ${global.search.page} of ${global.search.totalPages}</div>
+    `;
+
+    document.querySelector('#pagination').appendChild(div);
+
+    //Disable 'Prev' button on first page
+    if (global.search.page === 1) {
+        document.querySelector('#prev').disabled = true;
+    }
+
+    // Disable the 'Next' button if at last page
+    if (global.search.page === global.search.totalPages) {
+        document.querySelector('#next').disabled = true;
+    }
+
+    // Next page
+    document.querySelector('#next').addEventListener('click', async () => {
+        global.search.page++;
+        const { results, total_pages } = await searchAPIData();
+        displaySearchResults(results);
+    })
+
+     // Prev page
+    document.querySelector('#prev').addEventListener('click', async () => {
+        global.search.page--;
+        const { results, total_pages } = await searchAPIData();
+        displaySearchResults(results);
+    })
 }
 
 
@@ -404,7 +461,7 @@ async function searchAPIData() {
     // we need to make the url: ?type=movie&search-term=goodfellas
     //movie=> movie or tv
     //goodfellas => your search input
-    const response = await fetch(`${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en-US&query=${global.search.term}`);
+    const response = await fetch(`${API_URL}search/${global.search.type}?api_key=${API_KEY}&language=en-US&query=${global.search.term}&page=${global.search.page}`);
     const data = await response.json();
 
     hideSpinner(); // hide the spinner after fetching data
